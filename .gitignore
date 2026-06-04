@@ -1,0 +1,14 @@
+# Nunca subir datos reales de nómina al repositorio
+*.csv
+nomina*.csv
+*.xlsx
+*.xls
+# Credenciales de servidor (NUNCA en un sitio público)
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
+# Basura del sistema
+.DS_Store
+Thumbs.db
+node_modules/

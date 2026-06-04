@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nómina · Revisión del Operador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+:root{
+  --bg:#0E1116;--panel:#161B22;--panel2:#1C232C;--line:#262E38;--line2:#33404D;
+  --ink:#E6EDF3;--muted:#8B98A5;--dim:#5b6673;
+  --lime:#9EE34F;--cyan:#56C7E6;--amber:#F0B859;--red:#FF6B6B;--violet:#B99BF2;--green:#5FD08A;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+.hidden{display:none!important}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+#login .lcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px 26px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#login h2{font-family:var(--mono);font-size:16px;color:var(--cyan);margin:0 0 4px}
+#login p{font-size:12px;color:var(--muted);margin:0 0 18px;line-height:1.5}
+#login label{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+#login input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--line2);border-radius:8px;color:var(--ink);font-family:var(--mono);font-size:13px;outline:none}
+#login input:focus{border-color:var(--cyan)}
+#login .lbtn{width:100%;margin-top:18px;padding:11px;background:var(--cyan);color:#06212b;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--sans)}
+#login .lerr{display:none;margin-top:12px;font-size:12px;color:var(--red);background:rgba(255,90,90,.08);border:1px solid rgba(255,90,90,.3);border-radius:7px;padding:8px 10px}
+#login .llocal{display:block;text-align:center;margin-top:14px;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline}
+.top{position:sticky;top:0;z-index:50;background:rgba(14,17,22,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 20px}
+.top h1{margin:0;font-size:15px;font-family:var(--mono);font-weight:600}
+.top h1 .tag{color:var(--cyan)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:10px}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.fld select,.fld input{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:6px 9px;outline:none}
+.fld select:focus,.fld input:focus{border-color:var(--cyan)}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;color:var(--ink);font-size:12px;padding:7px 11px;cursor:pointer;font-family:var(--sans)}
+.btn:hover{border-color:var(--cyan)}
+.btn.primary{background:var(--cyan);color:#06212b;border-color:var(--cyan);font-weight:600}
+.miniact{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline}
+.chip{font-family:var(--mono);font-size:11px;color:var(--cyan);background:rgba(86,199,230,.1);border:1px solid rgba(86,199,230,.3);border-radius:20px;padding:3px 10px}
+#sources{font-size:11px;color:var(--dim);font-family:var(--mono);margin-left:auto}
+.wrap{padding:18px 20px 60px;max-width:1600px;margin:0 auto}
+.section-t{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:22px 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 15px}
+.kpi .l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.kpi .v{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:5px}
+.kpi .d{font-family:var(--mono);font-size:11px;margin-top:3px}
+.up{color:var(--green)}.down{color:var(--red)}.flat{color:var(--dim)}
+.inc{display:flex;flex-direction:column;gap:7px}
+.incrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line2);border-radius:9px;padding:9px 13px;cursor:pointer}
+.incrow.r{border-left-color:var(--red)}.incrow.a{border-left-color:var(--amber)}.incrow.v{border-left-color:var(--violet)}.incrow.g{border-left-color:var(--green)}
+.incrow .ico{font-family:var(--mono);font-weight:700;font-size:13px;width:22px;text-align:center}
+.incrow .tx{flex:1;font-size:13px}.incrow .tx b{font-family:var(--mono)}
+.incrow .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.empty{color:var(--dim);font-size:13px;padding:12px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:9px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:11px;background:var(--panel);max-height:72vh}
+table.rev{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+table.rev th,table.rev td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+table.rev th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:10px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;z-index:2}
+table.rev th:first-child,table.rev td:first-child,table.rev th.l,table.rev td.l{text-align:left;position:sticky;left:0;background:var(--panel)}
+table.rev th:first-child{background:var(--panel2);z-index:3}
+table.rev td{font-family:var(--mono)}
+table.rev td.l{font-family:var(--sans)}
+table.rev tbody tr:hover td,table.rev tbody tr:hover td.l{background:var(--panel2)}
+.muted0{color:var(--dim)}.neg{color:var(--red)}.tot{font-weight:600}
+.dn{font-family:var(--mono);font-size:11px}
+.badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:middle}
+.badge.alta{background:rgba(95,208,138,.15);color:var(--green);border:1px solid rgba(95,208,138,.4)}
+.badge.baja{background:rgba(255,107,107,.13);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+.badge.chg{background:rgba(240,184,89,.13);color:var(--amber);border:1px solid rgba(240,184,89,.4)}
+.cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.cmpc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px}
+.cmpc .cl{font-size:11px;color:var(--muted)}
+.cmpc .cv{font-family:var(--mono);font-size:16px;font-weight:600;margin-top:4px}
+.cmpc .cd{font-family:var(--mono);font-size:11px;margin-top:2px}
+.legend{font-size:11px;color:var(--dim);margin:8px 0 0}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="lcard">
+    <h2>nómina :: revisión</h2>
+    <p>Acceso CAFIVER · operador de nómina.</p>
+    <label>Correo</label>
+    <input id="lemail" type="email" placeholder="usuario@cafiver.com.mx" autocomplete="username" value="operador@cafiver.com.mx">
+    <label>Contraseña</label>
+    <input id="lpass" type="password" placeholder="••••••••" autocomplete="current-password">
+    <button class="lbtn" id="lbtn">Iniciar sesión</button>
+    <div class="lerr" id="lerr"></div>
+    <span class="llocal" id="llocal">Ver en local sin conexión (muestra)</span>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<div class="top">
+  <h1>Nómina <span class="tag">:: revisión del operador</span></h1>
+  <div class="toolbar">
+    <div class="fld"><label>Período actual</label><select id="selCur"></select></div>
+    <div class="fld"><label>Comparar contra</label><select id="selPrev"></select></div>
+    <div class="fld"><label>Área de nómina</label><select id="selAN"></select></div>
+    <div class="fld"><label>Buscar empleado</label><input id="q" type="text" placeholder="nombre o número" style="width:170px"></div>
+    <label class="btn primary" for="fileInput" style="cursor:pointer">+ Cargar CSV</label>
+    <input id="fileInput" type="file" accept=".csv,text/csv" multiple style="display:none">
+    <button class="btn" id="reloadBtn">Recargar nube</button>
+    <button class="btn" id="csvBtn">Exportar revisión</button>
+    <span class="chip" id="userChip" style="display:none"></span>
+    <span class="miniact" id="logoutBtn" style="color:var(--muted);display:none">salir</span>
+    <span id="sources">muestra</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="section-t">Indicadores de control — período actual vs. anterior</div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="section-t">Incidencias a revisar antes de timbrar</div>
+  <div class="inc" id="inc"></div>
+
+  <div class="section-t">Comparativo por concepto</div>
+  <div class="cmp" id="cmp"></div>
+  <div class="legend">Δ = variación contra el período de comparación. Verde baja, rojo sube.</div>
+
+  <div class="section-t">Revisión por empleado <span id="revcount" style="color:var(--dim)"></span></div>
+  <div class="tablewrap"><table class="rev" id="rev"></table></div>
+  <div class="legend">Neto = Percepciones − Deducciones, reconciliado con <b>/560</b> de SAP. <span class="badge alta">alta</span> nuevo · <span class="badge baja">baja</span> ya no aparece · <span class="badge chg">±</span> variación fuerte. Clic en columna para ordenar.</div>
+</div>
+</div>
+
+<script>
+/* ===== Firebase (mismo patrón apps CAFIVER) ===== */
+const firebaseConfig=window.FIREBASE_CONFIG||{
+  apiKey:"TU_API_KEY",
+  authDomain:"nomina-cafiver.firebaseapp.com",
+  projectId:"nomina-cafiver",
+  storageBucket:"nomina-cafiver.firebasestorage.app",
+  messagingSenderId:"TU_SENDER_ID",
+  appId:"TU_APP_ID"
+};
+let fbReady=false,fbAuth=null,fbDb=null,curUser=null;
+try{ if(firebaseConfig.apiKey&&firebaseConfig.apiKey!=='TU_API_KEY'&&window.firebase){
+  firebase.initializeApp(firebaseConfig);fbAuth=firebase.auth();fbDb=firebase.firestore();fbReady=true;} }catch(e){console.warn(e);}
+const FB_COL='nominaRows',FB_CHUNK=2500;
+function fbClean(r){const o={};for(const k in r){o[k]=(r[k]===undefined||r[k]===null||(typeof r[k]==='number'&&isNaN(r[k])))?'':r[k];}return o;}
+function fbGroup(rows){const m={};rows.forEach(r=>{const k=(r.area||'(s/a)')+'__'+(r.fpbeg||r.periodo||'');(m[k]=m[k]||[]).push(r);});return m;}
+async function saveToCloud(rows){
+  if(!fbReady||!curUser||!rows||!rows.length)return;
+  const g=fbGroup(rows);
+  for(const k in g){const p=k.split('__');
+    try{const ex=await fbDb.collection(FB_COL).where('k','==',k).get();const b=fbDb.batch();ex.forEach(d=>b.delete(d.ref));await b.commit();
+      const rs=g[k];for(let i=0;i<rs.length;i+=FB_CHUNK){await fbDb.collection(FB_COL).add({k:k,area:p[0],fpbeg:p[1],part:i/FB_CHUNK,rows:rs.slice(i,i+FB_CHUNK).map(fbClean)});}
+    }catch(e){console.error('saveToCloud',k,e);}}
+  setStatus();
+}
+async function loadFromCloud(){
+  if(!fbReady)return [];
+  try{const snap=await fbDb.collection(FB_COL).get();let all=[];snap.forEach(d=>{const v=d.data();if(v&&v.rows)all=all.concat(v.rows);});return all;}
+  catch(e){console.error(e);return [];}
+}
+function setStatus(){const c=document.getElementById('userChip');if(c&&curUser)c.textContent=curUser.email+(fbReady?' · nube':'');}
+function showLoginErr(m){const el=document.getElementById('lerr');el.textContent=m;el.style.display='block';}
+function doLogin(){
+  const email=(document.getElementById('lemail').value||'').trim().toLowerCase();
+  const pass=(document.getElementById('lpass').value||'').trim();
+  const btn=document.getElementById('lbtn');document.getElementById('lerr').style.display='none';
+  if(!fbReady){showLoginErr('Firebase sin configurar: pega tu firebaseConfig o entra en modo local.');return;}
+  if(!email||!pass){showLoginErr('Escribe correo y contraseña.');return;}
+  btn.disabled=true;btn.textContent='Entrando…';
+  fbAuth.signInWithEmailAndPassword(email,pass).catch(e=>{btn.disabled=false;btn.textContent='Iniciar sesión';
+    let m='Correo o contraseña incorrectos.';
+    if(e.code==='auth/user-not-found')m='Usuario no encontrado.';
+    else if(e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')m='Credenciales incorrectas.';
+    else if(e.code==='auth/network-request-failed')m='Sin conexión a internet.';
+    showLoginErr(m);});
+}
+async function enterApp(user){
+  curUser=user;document.getElementById('login').style.display='none';document.getElementById('app').classList.remove('hidden');
+  if(user){const chip=document.getElementById('userChip');chip.style.display='';setStatus();document.getElementById('logoutBtn').style.display='';
+    const rows=await loadFromCloud();if(rows.length)setData(rows,false);else setData(parseCSV(DEMO_CSV),true);
+  }else{setData(parseCSV(DEMO_CSV),true);}
+}
+function localMode(){enterApp(null);}
+function doLogout(){if(fbAuth)fbAuth.signOut();else location.reload();}
+if(fbReady){fbAuth.onAuthStateChanged(u=>{if(u){enterApp(u);}else{document.getElementById('login').style.display='flex';document.getElementById('app').classList.add('hidden');
+  const b=document.getElementById('lbtn');if(b){b.disabled=false;b.textContent='Iniciar sesión';}}});}
+
+/* ===== Utilidades ===== */
+const M0=n=>(Math.round(n||0)).toLocaleString('es-MX');
+const M2=n=>(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+function plabel(fp){if(!fp)return '—';const mm=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const p=fp.split('-');if(p.length<3)return fp;const d=+p[2],q=d<=15?'1ª':'2ª';return mm[(+p[1]-1)]+' '+q+" '"+p[0].slice(2);}
+function parseCSV(text){
+  if(!text)return [];text=text.replace(/^\uFEFF/,'');
+  const lines=text.split(/\r?\n/).filter(l=>l.length);if(!lines.length)return [];
+  const sep=lines[0].indexOf(';')>=0?';':',';
+  const split=l=>{const o=[];let cur='',q=false;for(let i=0;i<l.length;i++){const ch=l[i];
+    if(q){if(ch==='"'){if(l[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=ch;}
+    else{if(ch==='"')q=true;else if(ch===sep){o.push(cur);cur='';}else cur+=ch;}}o.push(cur);return o;};
+  const head=split(lines[0]).map(h=>h.trim().toUpperCase());const ix={};head.forEach((h,i)=>ix[h]=i);
+  const num=s=>{if(s===undefined)return 0;s=(''+s).replace(/,/g,'').trim();const v=parseFloat(s);return isNaN(v)?0:v;};
+  const rows=[];
+  for(let i=1;i<lines.length;i++){const c=split(lines[i]);if(!c.length)continue;
+    rows.push({pernr:(c[ix.PERNR]||'').replace(/^0+/,'')||(c[ix.PERNR]||''),empleado:c[ix.EMPLEADO]||'',area:c[ix.AREA_NOMINA]||'',
+      periodo:c[ix.PERIODO]||'',fpbeg:c[ix.FPBEG]||'',fpend:c[ix.FPEND]||'',centro:c[ix.CENTRO_COSTE]||'',
+      lgart:(c[ix.CLASE_NOMINA]||'').trim(),concepto:c[ix.CONCEPTO]||'',importe:num(c[ix.IMPORTE]),numero:num(c[ix.NUMERO])});}
+  return rows;
+}
+
+/* ===== Clasificación adaptada a CAFIVER (reconcilia con /560) ===== */
+const NETWT='/560';
+const SKIPWT=new Set(['1047','1065']);              // fondo de ahorro patronal: se da y se quita (suma 0)
+const TAX=new Set(['/391','/440','/441','/442','/443']); // impuestos/IMSS: van con SIGNO (un negativo es reembolso)
+const COLMAP={
+  '1001':['PER','sueldo'],
+  '1003':['PER','he'],'1007':['PER','he'],'1008':['PER','he'],'1036':['PER','he'],'1037':['PER','he'],
+  '1002':['PER','primas'],'1009':['PER','primas'],
+  '1014':['PER','bono'],'1020':['PER','bono'],
+  '1200':['PER','subsidio'],
+  '5101':['PER','liq'],'5102':['PER','liq'],'5110':['PER','liq'],'5113':['PER','liq'],'5114':['PER','liq'],
+  '5115':['PER','vales'],
+  '/440':['DED','isr'],'/441':['DED','isr'],'/442':['DED','isr'],'/443':['DED','isr'],
+  '/391':['DED','imss'],
+  '/381':['DED','infonavit'],
+  '/382':['DED','fonacot'],
+  '2033':['DED','faemp'],
+  '2201':['DED','prestfa'],
+  '2203':['DED','intfa'],
+  '2021':['DED','pension'],
+  '2040':['DED','varios']
+};
+const PER_COLS=[
+  {k:'sueldo',lbl:'Sueldo'},{k:'he',lbl:'Horas extra'},{k:'primas',lbl:'Primas'},
+  {k:'bono',lbl:'Bono/Gratif.'},{k:'subsidio',lbl:'Subsidio'},{k:'liq',lbl:'Liquidación'},
+  {k:'vales',lbl:'Vales'},{k:'otrosi',lbl:'Otros ing.'}
+];
+const DED_COLS=[
+  {k:'isr',lbl:'Impuesto'},{k:'imss',lbl:'IMSS'},{k:'infonavit',lbl:'Infonavit'},{k:'fonacot',lbl:'Fonacot'},
+  {k:'faemp',lbl:'Fondo ahorro'},{k:'prestfa',lbl:'Préstamo F.A.'},{k:'intfa',lbl:'Intereses F.A.'},
+  {k:'pension',lbl:'Pensión'},{k:'varios',lbl:'Varios'}
+];
+function classify(lgart,importe){
+  if(SKIPWT.has(lgart))return null;
+  if(lgart===NETWT)return {side:'NET'};
+  const m=COLMAP[lgart];
+  if(m){
+    if(m[0]==='DED'){const v=TAX.has(lgart)?importe:Math.abs(importe);return {side:'DED',col:m[1],val:v};}
+    return {side:'PER',col:m[1],val:importe};
+  }
+  if(TAX.has(lgart))return {side:'DED',col:'isr',val:importe};
+  if(importe<0)return {side:'DED',col:'varios',val:-importe};
+  return {side:'PER',col:'otrosi',val:importe};
+}
+
+/* ===== Estado ===== */
+let ALLROWS=[],isDemo=true,PERIODS=[],PCOUNT={},curPk='',prevPk='',curAN='__all',sortKey='neto',sortDir=-1;
+const pkOf=r=>r.fpbeg||r.periodo;
+function setData(rows,demo){
+  ALLROWS=(rows||[]).filter(r=>r.pernr&&r.lgart);isDemo=!!demo;rebuild(true);
+  document.getElementById('sources').textContent=isDemo?'muestra de 25 empleados — carga tu CSV completo':(ALLROWS.length+' líneas · '+PERIODS.length+' períodos');
+}
+function mergeData(newRows){
+  newRows=(newRows||[]).filter(r=>r.pernr&&r.lgart);if(!newRows.length)return;
+  if(isDemo){ALLROWS=[];isDemo=false;}
+  const keys=new Set(newRows.map(r=>r.area+'__'+(r.fpbeg||r.periodo)));
+  ALLROWS=ALLROWS.filter(r=>!keys.has(r.area+'__'+(r.fpbeg||r.periodo))).concat(newRows);
+  rebuild(true);document.getElementById('sources').textContent=ALLROWS.length+' líneas · '+PERIODS.length+' períodos';
+}
+function rebuild(resetSel){
+  PERIODS=Array.from(new Set(ALLROWS.map(pkOf))).filter(Boolean).sort();
+  PCOUNT={};const tmp={};PERIODS.forEach(p=>tmp[p]=new Set());
+  ALLROWS.forEach(r=>{const pk=pkOf(r);if(tmp[pk])tmp[pk].add(r.pernr);});
+  PERIODS.forEach(p=>PCOUNT[p]=tmp[p].size);
+  if(resetSel||!PERIODS.includes(curPk)){
+    const maxc=Math.max(1,...PERIODS.map(p=>PCOUNT[p]));
+    const big=PERIODS.filter(p=>PCOUNT[p]>=maxc*0.5);const base=big.length?big:PERIODS;
+    curPk=base[base.length-1];const before=base.filter(p=>p<curPk);prevPk=before.length?before[before.length-1]:'';
+  }
+  const ans=Array.from(new Set(ALLROWS.map(r=>r.area).filter(Boolean))).sort();
+  const lab=v=>plabel(v)+' · '+(PCOUNT[v]||0)+' emp';
+  const fill=(id,arr,val,extra)=>{const s=document.getElementById(id);if(!s)return;s.innerHTML='';
+    (extra||[]).forEach(o=>{const op=document.createElement('option');op.value=o.v;op.textContent=o.t;s.appendChild(op);});
+    arr.forEach(v=>{const op=document.createElement('option');op.value=v;op.textContent=lab(v);s.appendChild(op);});s.value=val;};
+  fill('selCur',PERIODS,curPk);fill('selPrev',PERIODS,prevPk,[{v:'',t:'(ninguno)'}]);
+  const sAN=document.getElementById('selAN');sAN.innerHTML='';
+  const oa=document.createElement('option');oa.value='__all';oa.textContent='Todas';sAN.appendChild(oa);
+  ans.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sAN.appendChild(o);});sAN.value=curAN;
+  render();
+}
+function summarize(pk){
+  const map=new Map();if(!pk)return map;
+  ALLROWS.forEach(r=>{
+    if(pkOf(r)!==pk)return;if(curAN!=='__all'&&r.area!==curAN)return;
+    let e=map.get(r.pernr);
+    if(!e){e={pernr:r.pernr,empleado:r.empleado,area:r.area,centro:r.centro,b:{},ing:0,ded:0,neto560:null};map.set(r.pernr,e);}
+    const cl=classify(r.lgart,r.importe);if(!cl)return;
+    if(cl.side==='NET'){e.neto560=r.importe;return;}
+    if(cl.side==='PER'){e.ing+=cl.val;}else{e.ded+=cl.val;}
+    e.b[cl.col]=(e.b[cl.col]||0)+cl.val;
+  });
+  map.forEach(e=>{e.neto=e.ing-e.ded;});
+  return map;
+}
+function render(){
+  const cur=summarize(curPk),prev=summarize(prevPk),hasPrev=!!prevPk;
+  renderKpis(cur,prev,hasPrev);renderInc(cur,prev,hasPrev);renderCmp(cur,prev);renderTable(cur,prev,hasPrev);
+}
+function sum(map,f){let s=0;map.forEach(e=>s+=f(e));return s;}
+function dT(now,was){if(!was){return now?'<span class="up">nuevo</span>':'<span class="flat">—</span>';}
+  const d=now-was,p=was?(d/Math.abs(was)*100):0,cls=d>0?'up':(d<0?'down':'flat'),s=d>0?'+':'';return '<span class="'+cls+'">'+s+M0(d)+' ('+s+p.toFixed(1)+'%)</span>';}
+function dTi(now,was){if(!was){return now?'<span class="down">nuevo</span>':'<span class="flat">—</span>';}
+  const d=now-was,p=was?(d/Math.abs(was)*100):0,cls=d>0?'down':(d<0?'up':'flat'),s=d>0?'+':'';return '<span class="'+cls+'">'+s+M0(d)+' ('+s+p.toFixed(1)+'%)</span>';}
+
+function renderKpis(cur,prev,hasPrev){
+  const cN=sum(cur,e=>e.neto),pN=sum(prev,e=>e.neto),cI=sum(cur,e=>e.ing),pI=sum(prev,e=>e.ing),cD=sum(cur,e=>e.ded),pD=sum(prev,e=>e.ded);
+  const altas=hasPrev?[...cur.keys()].filter(k=>!prev.has(k)).length:0;
+  const bajas=hasPrev?[...prev.keys()].filter(k=>!cur.has(k)).length:0;
+  let incid=0;cur.forEach(e=>{if(incidenciasDe(e,prev.get(e.pernr),hasPrev).length)incid++;});
+  const cards=[
+    ['Neto a pagar','$'+M0(cN),hasPrev?dT(cN,pN):'<span class="flat">—</span>'],
+    ['Total percepciones','$'+M0(cI),hasPrev?dT(cI,pI):'<span class="flat">—</span>'],
+    ['Total deducciones','$'+M0(cD),hasPrev?dTi(cD,pD):'<span class="flat">—</span>'],
+    ['Empleados',M0(cur.size),hasPrev?dT(cur.size,prev.size):'<span class="flat">—</span>'],
+    ['Altas',M0(altas),altas?'<span class="up">+'+altas+'</span>':'<span class="flat">—</span>'],
+    ['Bajas',M0(bajas),bajas?'<span class="down">-'+bajas+'</span>':'<span class="flat">—</span>'],
+    ['Incidencias',M0(incid),incid?'<span class="down">revisar</span>':'<span class="up">ok</span>']
+  ];
+  document.getElementById('kpis').innerHTML=cards.map(c=>'<div class="kpi"><div class="l">'+c[0]+'</div><div class="v">'+c[1]+'</div><div class="d">'+c[2]+'</div></div>').join('');
+}
+function incidenciasDe(e,p,hasPrev){
+  const out=[];
+  if(e.neto560!==null&&Math.abs(e.neto560-e.neto)>1)out.push({c:'r',ico:'≠',t:'Descuadre: neto $'+M2(e.neto)+' vs /560 $'+M2(e.neto560)});
+  if(e.neto<0)out.push({c:'r',ico:'!',t:'Neto negativo: $'+M2(e.neto)});
+  if(e.ded>e.ing)out.push({c:'a',ico:'▲',t:'Deducciones ($'+M0(e.ded)+') mayores que percepciones ($'+M0(e.ing)+')'});
+  if(e.ing>5000&&(e.b.isr||0)<=0&&(e.b.imss||0)<=0)out.push({c:'a',ico:'∅',t:'Sin ISR ni IMSS con percepciones de $'+M0(e.ing)});
+  if(hasPrev&&p){const dn=p.neto?((e.neto-p.neto)/Math.abs(p.neto)*100):0;if(Math.abs(dn)>=30)out.push({c:'v',ico:'Δ',t:'Variación de neto '+(dn>0?'+':'')+dn.toFixed(0)+'% ($'+M0(p.neto)+' → $'+M0(e.neto)+')'});}
+  return out;
+}
+function renderInc(cur,prev,hasPrev){
+  const rows=[];
+  cur.forEach(e=>{incidenciasDe(e,prev.get(e.pernr),hasPrev).forEach(i=>rows.push({e,i}));});
+  if(hasPrev){
+    [...prev.keys()].filter(k=>!cur.has(k)).forEach(k=>{const e=prev.get(k);rows.push({e,i:{c:'r',ico:'↓',t:'Baja: aparecía en el período anterior y ya no'}});});
+    [...cur.keys()].filter(k=>!prev.has(k)).forEach(k=>{const e=cur.get(k);rows.push({e,i:{c:'g',ico:'↑',t:'Alta: no estaba en el período anterior'}});});
+  }
+  const box=document.getElementById('inc');
+  if(!rows.length){box.innerHTML='<div class="empty">Sin incidencias. Todo cuadra contra /560. ✓</div>';return;}
+  rows.sort((a,b)=>({r:0,a:1,v:2,g:3}[a.i.c]-{r:0,a:1,v:2,g:3}[b.i.c]));
+  box.innerHTML=rows.slice(0,400).map(x=>'<div class="incrow '+x.i.c+'" data-emp="'+x.e.pernr+'"><div class="ico">'+x.i.ico+'</div><div class="tx"><b>'+x.e.pernr+'</b> '+(x.e.empleado||'')+' — '+x.i.t+'</div><div class="n">'+(x.e.area||'')+'</div></div>').join('');
+  box.querySelectorAll('.incrow').forEach(el=>el.addEventListener('click',()=>{document.getElementById('q').value=el.getAttribute('data-emp');render();document.getElementById('rev').scrollIntoView({behavior:'smooth',block:'center'});}));
+}
+function renderCmp(cur,prev){
+  const items=[
+    {lbl:'Total percepciones',f:e=>e.ing,inv:false},{lbl:'Total deducciones',f:e=>e.ded,inv:true},
+    {lbl:'Impuesto (ISR)',f:e=>e.b.isr||0,inv:true},{lbl:'IMSS',f:e=>e.b.imss||0,inv:true},
+    {lbl:'Infonavit',f:e=>e.b.infonavit||0,inv:true},{lbl:'Fonacot',f:e=>e.b.fonacot||0,inv:true},
+    {lbl:'Fondo de ahorro',f:e=>e.b.faemp||0,inv:true},{lbl:'Neto a pagar',f:e=>e.neto,inv:false}
+  ];
+  document.getElementById('cmp').innerHTML=items.map(it=>{const now=sum(cur,it.f),was=sum(prev,it.f);
+    return '<div class="cmpc"><div class="cl">'+it.lbl+'</div><div class="cv">$'+M0(now)+'</div><div class="cd">'+(it.inv?dTi(now,was):dT(now,was))+'</div></div>';}).join('');
+}
+function renderTable(cur,prev,hasPrev){
+  const q=(document.getElementById('q').value||'').toLowerCase().trim();
+  let rows=[...cur.values()];
+  if(hasPrev){const bajas=[...prev.keys()].filter(k=>!cur.has(k)).map(k=>{const e=prev.get(k);return Object.assign({},e,{_baja:true});});rows=rows.concat(bajas);}
+  if(q)rows=rows.filter(e=>(e.empleado||'').toLowerCase().includes(q)||(''+e.pernr).includes(q));
+  const val=e=>{if(sortKey==='pernr')return +e.pernr||0;if(sortKey==='empleado')return (e.empleado||'').toLowerCase();
+    if(sortKey==='ing')return e.ing;if(sortKey==='ded')return e.ded;if(sortKey==='neto')return e.neto;
+    if(sortKey==='dneto'){const p=prev.get(e.pernr);return p?e.neto-p.neto:e.neto;}return e.b[sortKey]||0;};
+  rows.sort((a,b)=>{const va=val(a),vb=val(b);if(va<vb)return sortDir;if(va>vb)return -sortDir;return 0;});
+  const TH=(k,l,cls)=>'<th class="'+(cls||'')+'" data-k="'+k+'">'+l+(sortKey===k?(sortDir<0?' ▼':' ▲'):'')+'</th>';
+  let h='<thead><tr>'+TH('pernr','No.','l')+TH('empleado','Empleado','l');
+  PER_COLS.forEach(c=>h+=TH(c.k,c.lbl));h+=TH('ing','Total Percep.');
+  DED_COLS.forEach(c=>h+=TH(c.k,c.lbl));h+=TH('ded','Total Deducc.');
+  h+=TH('neto','Neto')+TH('netbl','Neteable')+TH('dneto','Δ Neto')+'</tr></thead>';
+  const cell=v=>v?M2(v):'<span class="muted0">·</span>';
+  let b='<tbody>';
+  rows.forEach(e=>{
+    const p=prev.get(e.pernr);let badge='';
+    if(e._baja)badge=' <span class="badge baja">baja</span>';
+    else if(hasPrev&&!p)badge=' <span class="badge alta">alta</span>';
+    else if(p){const dn=p.neto?((e.neto-p.neto)/Math.abs(p.neto)*100):0;if(Math.abs(dn)>=30)badge=' <span class="badge chg">±'+dn.toFixed(0)+'%</span>';}
+    b+='<tr><td class="l">'+e.pernr+'</td><td class="l">'+(e.empleado||'')+badge+'</td>';
+    PER_COLS.forEach(c=>b+='<td>'+cell(e.b[c.k])+'</td>');
+    b+='<td class="tot">'+M2(e.ing)+'</td>';
+    DED_COLS.forEach(c=>b+='<td>'+cell(e.b[c.k])+'</td>');
+    b+='<td class="tot">'+M2(e.ded)+'</td>';
+    b+='<td class="tot'+(e.neto<0?' neg':'')+'">'+M2(e.neto)+'</td>';
+    const netbl=e.ing-e.ded-(e.neto560!==null?e.neto560:(e.ing-e.ded));
+    b+='<td class="'+(Math.abs(netbl)>0.5?'neg tot':'muted0')+'">'+(Math.abs(netbl)>0.005?M2(netbl):'0.00')+'</td>';
+    let dn='—',dc='muted0';if(hasPrev&&p){const d=e.neto-p.neto;dn=(d>0?'+':'')+M0(d);dc=d>0?'up':(d<0?'down':'flat');}else if(hasPrev&&!e._baja){dn='nuevo';dc='up';}
+    b+='<td class="dn '+dc+'">'+dn+'</td></tr>';
+  });
+  b+='</tbody>';
+  document.getElementById('rev').innerHTML=h+b;
+  document.getElementById('revcount').textContent='· '+rows.length+' empleados';
+  document.querySelectorAll('#rev th').forEach(th=>th.addEventListener('click',()=>{const k=th.getAttribute('data-k');if(sortKey===k)sortDir=-sortDir;else{sortKey=k;sortDir=-1;}render();}));
+}
+function exportCSV(){
+  const cur=summarize(curPk),prev=summarize(prevPk);
+  const head=['No.','Empleado','Area'].concat(PER_COLS.map(c=>c.lbl)).concat(['Total Percepciones']).concat(DED_COLS.map(c=>c.lbl)).concat(['Total Deducciones','Neto','/560','Neteable','Neto anterior','Delta Neto','Estado']);
+  const out=[head.join(';')];
+  cur.forEach(e=>{const p=prev.get(e.pernr);const netbl=e.ing-e.ded-(e.neto560!==null?e.neto560:(e.ing-e.ded));
+    const row=[e.pernr,'"'+(e.empleado||'')+'"',e.area].concat(PER_COLS.map(c=>(e.b[c.k]||0).toFixed(2))).concat([e.ing.toFixed(2)])
+      .concat(DED_COLS.map(c=>(e.b[c.k]||0).toFixed(2))).concat([e.ded.toFixed(2),e.neto.toFixed(2),e.neto560!==null?e.neto560.toFixed(2):'',netbl.toFixed(2),p?p.neto.toFixed(2):'',p?(e.neto-p.neto).toFixed(2):'',!p&&prevPk?'ALTA':'']);
+    out.push(row.join(';'));});
+  const blob=new Blob(['\uFEFF'+out.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='revision_nomina_'+(curPk||'')+'.csv';a.click();
+}
+
+/* ===== Wire ===== */
+document.addEventListener('DOMContentLoaded',()=>{
+  const lb=document.getElementById('lbtn');if(lb)lb.addEventListener('click',doLogin);
+  const lp=document.getElementById('lpass');if(lp)lp.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  const ll=document.getElementById('llocal');if(ll)ll.addEventListener('click',localMode);
+  const lo=document.getElementById('logoutBtn');if(lo)lo.addEventListener('click',doLogout);
+  document.getElementById('selCur').addEventListener('change',e=>{curPk=e.target.value;render();});
+  document.getElementById('selPrev').addEventListener('change',e=>{prevPk=e.target.value;render();});
+  document.getElementById('selAN').addEventListener('change',e=>{curAN=e.target.value;render();});
+  document.getElementById('q').addEventListener('input',()=>render());
+  document.getElementById('csvBtn').addEventListener('click',exportCSV);
+  const rb=document.getElementById('reloadBtn');if(rb)rb.addEventListener('click',async()=>{const rows=await loadFromCloud();if(rows.length)setData(rows,false);});
+  document.getElementById('fileInput').addEventListener('change',ev=>{const files=[...ev.target.files];if(!files.length)return;let acc=[],done=0;
+    files.forEach(f=>{const rd=new FileReader();rd.onload=()=>{acc=acc.concat(parseCSV(rd.result));if(++done===files.length){mergeData(acc);saveToCloud(acc);}};rd.readAsText(f);});ev.target.value='';});
+  if(!fbReady){const p=document.querySelector('#login .lcard p');if(p)p.textContent='Firebase sin configurar — entra en modo local o pega tu firebaseConfig.';localMode();}
+});
+
+/* ===== Muestra real de CAFIVER (25 empleados, 1 período). Carga tu CSV completo con "+ Cargar CSV". ===== */
+const DEMO_CSV=`PERNR;EMPLEADO;AREA_NOMINA;PERIODO;FPBEG;FPEND;CENTRO_COSTE;CLASE_NOMINA;CONCEPTO;IMPORTE;NUMERO
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;/382;Apor. crédito FONACOT;-1732.43;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;/391;Aportación trabaj. IMSS;304.42;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;/440;Impuesto ordinario;986.14;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;/560;Importe de pago;5253.68;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;1047;Fa Aportación Patronal;818.57;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;1065;FA Aportacion Patronal Re;-818.57;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;2033;Fondo De Ahorro Empleados;-818.57;0.00
+50001;ACEVEDO HERNANDEZ MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF01001;1001;Sueldos;9095.24;15.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;/391;Aportación trabaj. IMSS;208.71;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;/440;Impuesto ordinario;516.79;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;/560;Importe de pago;5213.33;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;1047;Fa Aportación Patronal;576.79;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;1065;FA Aportacion Patronal Re;-576.79;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;2033;Fondo De Ahorro Empleados;-576.79;0.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;1001;Sueldos;6408.81;15.00
+50007;ARGUELLO MEDINA ADELINDA;CC;2026-05;2026-05-16;2026-05-31;KF10054;1002;Prima Dominical;106.81;1.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;/391;Aportación trabaj. IMSS;425.60;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;/440;Impuesto ordinario;1665.70;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;/560;Importe de pago;9080.51;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;1047;Fa Aportación Patronal;1104.90;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;1065;FA Aportacion Patronal Re;-1104.90;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;2033;Fondo De Ahorro Empleados;-1104.90;0.00
+50009;BASTON CRUZ EDDA;CC;2026-05;2026-05-16;2026-05-31;KF02000;1001;Sueldos;12276.71;15.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/391;Aportación trabaj. IMSS;351.23;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/440;Impuesto ordinario;1080.73;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/560;Importe de pago;7574.57;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1047;Fa Aportación Patronal;844.36;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1065;FA Aportacion Patronal Re;-844.36;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;2033;Fondo De Ahorro Empleados;-844.36;0.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1001;Sueldos;9381.81;15.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1002;Prima Dominical;312.72;2.00
+50032;GARATE SANCHEZ MARTIN EDMUNDO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1003;Horas Extras Extraordina;156.36;1.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;/391;Aportación trabaj. IMSS;241.75;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;/440;Impuesto ordinario;683.42;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;/560;Importe de pago;5851.35;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;1047;Fa Aportación Patronal;670.21;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;1065;FA Aportacion Patronal Re;-670.21;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;2033;Fondo De Ahorro Empleados;-670.21;0.00
+50038;IBAÑEZ HUERTA MARCELA KIKEY;CC;2026-05;2026-05-16;2026-05-31;KF02138;1001;Sueldos;7446.73;15.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/381;Apor. crédito INFONAVIT;-2690.56;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/382;Apor. crédito FONACOT;-527.51;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/382;Apor. crédito FONACOT;-1221.09;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/391;Aportación trabaj. IMSS;327.00;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/440;Impuesto ordinario;1204.57;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;/560;Importe de pago;3236.54;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;1047;Fa Aportación Patronal;910.61;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;1065;FA Aportacion Patronal Re;-910.61;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;2033;Fondo De Ahorro Empleados;-910.61;0.00
+50046;MERCED CARRILLO ELOY RAFAEL;CC;2026-05;2026-05-16;2026-05-31;KF02138;1001;Sueldos;10117.88;15.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;/391;Aportación trabaj. IMSS;572.81;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;/440;Impuesto ordinario;2443.98;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;/560;Importe de pago;11395.73;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;1047;Fa Aportación Patronal;1432.83;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;1065;FA Aportacion Patronal Re;-1432.83;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;2033;Fondo De Ahorro Empleados;-1432.83;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;2203;Desc. Intereses F.A.;-75.00;0.00
+50061;RODRIGUEZ HERNANDEZ ARTURO;CC;2026-05;2026-05-16;2026-05-31;KF02001;1001;Sueldos;15920.35;15.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;/391;Aportación trabaj. IMSS;1279.63;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;/440;Impuesto ordinario;9421.62;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;/560;Importe de pago;28719.21;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;1047;Fa Aportación Patronal;2287.55;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;1065;FA Aportacion Patronal Re;-2287.55;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;2033;Fondo De Ahorro Empleados;-2287.55;0.00
+50062;ROJAS JARQUIN ROBER;GC;2026-05;2026-05-16;2026-05-31;KF02001;1001;Sueldos;41708.01;15.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;/391;Aportación trabaj. IMSS;443.31;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;/440;Impuesto ordinario;1680.59;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;/560;Importe de pago;9586.14;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;1047;Fa Aportación Patronal;870.99;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;1065;FA Aportacion Patronal Re;-870.99;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;2033;Fondo De Ahorro Empleados;-870.99;0.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;1001;Sueldos;9677.63;15.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;1002;Prima Dominical;322.60;2.00
+50069;SANCHEZ CARMONA JUAN;CC;2026-05;2026-05-16;2026-05-31;KF12051;1037;Descanso Laborado;2580.80;16.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;/391;Aportación trabaj. IMSS;456.69;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;/440;Impuesto ordinario;1842.64;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;/560;Importe de pago;9626.30;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;1047;Fa Aportación Patronal;1179.46;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;1065;FA Aportacion Patronal Re;-1179.46;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;2033;Fondo De Ahorro Empleados;-1179.46;0.00
+50078;VAZQUEZ CASTILLO MARISOL;CC;2026-05;2026-05-16;2026-05-31;KF01000;1001;Sueldos;13105.09;15.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;/391;Aportación trabaj. IMSS;359.08;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;/440;Impuesto ordinario;1296.18;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;/560;Importe de pago;7942.29;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;1047;Fa Aportación Patronal;949.21;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;1065;FA Aportacion Patronal Re;-949.21;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;2033;Fondo De Ahorro Empleados;-949.21;0.00
+50090;CARACAS TORALES MARIA ELENA;CC;2026-05;2026-05-16;2026-05-31;KF02105;1001;Sueldos;10546.76;15.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;/391;Aportación trabaj. IMSS;403.51;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;/440;Impuesto ordinario;1534.35;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;/560;Importe de pago;8674.35;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;1047;Fa Aportación Patronal;1049.56;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;1065;FA Aportacion Patronal Re;-1049.56;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;2033;Fondo De Ahorro Empleados;-1049.56;0.00
+50094;RODRIGUEZ RAMIREZ CARLOS EUMIR;CC;2026-05;2026-05-16;2026-05-31;KF03101;1001;Sueldos;11661.77;15.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;/382;Apor. crédito FONACOT;-2566.01;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;/391;Aportación trabaj. IMSS;567.18;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;/440;Impuesto ordinario;2509.24;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;/560;Importe de pago;9123.11;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;1047;Fa Aportación Patronal;1460.33;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;1065;FA Aportacion Patronal Re;-1460.33;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;2033;Fondo De Ahorro Empleados;-1460.33;0.00
+50096;COVARRUBIAS CORNEJO HECTOR MANUEL;CC;2026-05;2026-05-16;2026-05-31;KF02001;1001;Sueldos;16225.87;15.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;/382;Apor. crédito FONACOT;-512.56;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;/382;Apor. crédito FONACOT;-834.33;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;/391;Aportación trabaj. IMSS;404.66;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;/440;Impuesto ordinario;1373.67;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;/560;Importe de pago;7538.54;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;1047;Fa Aportación Patronal;931.98;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;1065;FA Aportacion Patronal Re;-931.98;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;2033;Fondo De Ahorro Empleados;-931.98;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;2203;Desc. Intereses F.A.;-54.06;0.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;1001;Sueldos;10355.37;15.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;1002;Prima Dominical;517.77;3.00
+50135;ORTEGA CORTES ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02009;1003;Horas Extras Extraordina;776.66;4.50
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;/381;Apor. crédito INFONAVIT;-2114.44;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;/391;Aportación trabaj. IMSS;388.48;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;/440;Impuesto ordinario;1422.96;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;/560;Importe de pago;6661.56;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;1047;Fa Aportación Patronal;787.50;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;1065;FA Aportacion Patronal Re;-787.50;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;2033;Fondo De Ahorro Empleados;-787.50;0.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;1001;Sueldos;8750.00;15.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;1002;Prima Dominical;291.66;2.00
+50149;CORREA SANCHEZ JOSE ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF11151;1037;Descanso Laborado;2333.28;16.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;/391;Aportación trabaj. IMSS;410.14;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;/440;Impuesto ordinario;1456.62;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;/560;Importe de pago;9627.71;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;1047;Fa Aportación Patronal;931.98;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;1065;FA Aportacion Patronal Re;-931.98;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;2033;Fondo De Ahorro Empleados;-931.98;0.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;1001;Sueldos;10355.37;15.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;1002;Prima Dominical;517.77;3.00
+50153;CALDERON GARCIA LUIS;CC;2026-05;2026-05-16;2026-05-31;KF02009;1003;Horas Extras Extraordina;1553.31;9.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;/381;Apor. crédito INFONAVIT;-3460.33;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;/382;Apor. crédito FONACOT;-1860.00;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;/391;Aportación trabaj. IMSS;366.29;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;/440;Impuesto ordinario;1600.41;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;/560;Importe de pago;4034.46;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1047;Fa Aportación Patronal;931.60;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1065;FA Aportacion Patronal Re;-931.60;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;2033;Fondo De Ahorro Empleados;-931.60;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;2203;Desc. Intereses F.A.;-82.00;0.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1001;Sueldos;10351.11;15.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1002;Prima Dominical;345.04;2.00
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1003;Horas Extras Extraordina;258.78;1.50
+50177;ARGUELLES JUAREZ JUAN;CC;2026-05;2026-05-16;2026-05-31;KF02024;1037;Descanso Laborado;1380.16;8.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;/382;Apor. crédito FONACOT;-968.50;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;/382;Apor. crédito FONACOT;-528.50;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;/391;Aportación trabaj. IMSS;376.23;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;/440;Impuesto ordinario;1151.27;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;/560;Importe de pago;5955.68;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;1047;Fa Aportación Patronal;888.15;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;1065;FA Aportacion Patronal Re;-888.15;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;2033;Fondo De Ahorro Empleados;-888.15;0.00
+50197;CAAMAL LIZAMA JOSE ZUAM;CC;2026-05;2026-05-16;2026-05-31;KF16051;1001;Sueldos;9868.33;15.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;/391;Aportación trabaj. IMSS;270.61;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;/440;Impuesto ordinario;882.43;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;/560;Importe de pago;6891.01;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;1047;Fa Aportación Patronal;682.98;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;1065;FA Aportacion Patronal Re;-682.98;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;2033;Fondo De Ahorro Empleados;-682.98;0.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;1001;Sueldos;7588.71;15.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;1002;Prima Dominical;126.48;1.00
+50206;MONTALVO GUEVARA MAURICIO;CC;2026-05;2026-05-16;2026-05-31;KF20051;1037;Descanso Laborado;1011.84;8.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;/391;Aportación trabaj. IMSS;260.57;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;/440;Impuesto ordinario;777.86;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;/560;Importe de pago;6217.70;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;1047;Fa Aportación Patronal;717.64;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;1065;FA Aportacion Patronal Re;-717.64;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;2033;Fondo De Ahorro Empleados;-717.64;0.00
+50214;FLORES LOPEZ JULIETA;CC;2026-05;2026-05-16;2026-05-31;KF01000;1001;Sueldos;7973.77;15.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;/381;Apor. crédito INFONAVIT;-1918.32;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;/391;Aportación trabaj. IMSS;373.70;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;/440;Impuesto ordinario;1371.31;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;/560;Importe de pago;6254.28;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;1047;Fa Aportación Patronal;980.86;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;1065;FA Aportacion Patronal Re;-980.86;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;2033;Fondo De Ahorro Empleados;-980.86;0.00
+50223;RODRIGUEZ HERNANDEZ MARIA YAZMIN;CC;2026-05;2026-05-16;2026-05-31;KF03101;1001;Sueldos;10898.47;15.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;/381;Apor. crédito INFONAVIT;-2526.36;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;/391;Aportación trabaj. IMSS;354.43;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;/440;Impuesto ordinario;1263.77;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;/560;Importe de pago;5246.09;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;1047;Fa Aportación Patronal;935.55;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;1065;FA Aportacion Patronal Re;-935.55;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;2033;Fondo De Ahorro Empleados;-935.55;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;2203;Desc. Intereses F.A.;-68.80;0.00
+50225;LOPEZ OLMEDO VALERIA GIOVANNY;CC;2026-05;2026-05-16;2026-05-31;KF01800;1001;Sueldos;10395.00;15.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/382;Apor. crédito FONACOT;-3033.00;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/391;Aportación trabaj. IMSS;558.65;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/440;Impuesto ordinario;2445.03;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;/560;Importe de pago;8393.72;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1047;Fa Aportación Patronal;1433.28;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1065;FA Aportacion Patronal Re;-1433.28;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;2033;Fondo De Ahorro Empleados;-1433.28;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;2203;Desc. Intereses F.A.;-61.60;0.00
+50228;GUTIERREZ LOPEZ MARCO ANTONIO;CC;2026-05;2026-05-16;2026-05-31;KF02118;1001;Sueldos;15925.28;15.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;/391;Aportación trabaj. IMSS;364.34;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;/440;Impuesto ordinario;1041.43;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;/560;Importe de pago;7352.40;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;1047;Fa Aportación Patronal;828.27;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;1065;FA Aportacion Patronal Re;-828.27;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;2033;Fondo De Ahorro Empleados;-828.27;0.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;1001;Sueldos;9202.99;15.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;1002;Prima Dominical;153.38;1.00
+50239;MARTINEZ MORALES VALENTIN;CC;2026-05;2026-05-16;2026-05-31;KF02118;1003;Horas Extras Extraordina;230.07;1.50
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;/391;Aportación trabaj. IMSS;1279.63;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;/440;Impuesto ordinario;22202.54;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;/560;Importe de pago;55829.12;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;1047;Fa Aportación Patronal;2287.55;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;1065;FA Aportacion Patronal Re;-2287.55;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;2033;Fondo De Ahorro Empleados;-2287.55;0.00
+50240;LOPEZ RIVAS MEDARDO EZEQUIEL;GC;2026-05;2026-05-16;2026-05-31;KF02008;1001;Sueldos;81598.84;15.00
+`;
+</script>
+</body>
+</html>
